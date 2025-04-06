@@ -1,0 +1,99 @@
+---
+title: "Task"
+author: "Jinran Li"
+date: "2025-04-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Core processing packages
+library(data.table) 
+library(dplyr) 
+library(lubridate) 
+library(fs) 
+library(stringr)
+
+# Visualisation
+library(ggplot2)
+library(scales) 
+library(ggthemes) 
+library(plotly) 
+
+# Time series analysis
+library(vars) 
+library(lmtest) 
+
+# Geospatial analysis
+library(sf) 
+library(tmap)
+library(ggspatial) 
+
+```
+
+
+```{r}
+##memory limit of 16 gb, cant combined all file
+
+
+
+# read all eaglei_outages_xxxx.csv file
+eagle_files <- list.files("eaglei_data", pattern = "^eaglei_outages_\\d{4}\\.csv$", full.names = TRUE)
+
+# Batch read and add year variable
+eagle_list <- lapply(eagle_files, function(file) {
+  dt <- fread(file)
+  year <- str_extract(file, "\\d{4}")   # Year of extraction
+  dt[, YEAR := as.integer(year)]        
+  return(dt)
+})
+
+# Combined into one master data frame
+eagle_data <- rbindlist(eagle_list, fill = TRUE)
+
+# View Results
+str(eagle_data)
+
+```
+
+```{r}
+eagle2023 <- fread("eaglei_data/eaglei_outages_2023.csv")
+
+
+head(eagle2023)
+
+```
+
+
+
+
+```{r}
+#StormData
+noaa_data <- fread("NOAA_StormEvents/StormEvents_2014_2024.csv")
+
+
+head(noaa_data)
+names(noaa_data)
+```
+
+
+```{r}
+#keep the column that we focuse on 
+noaa_data <- noaa_data[, .(
+  BEGIN_DATE_TIME, END_DATE_TIME, EVENT_TYPE,STATE, DEATHS_DIRECT,INJURIES_DIRECT,
+  DAMAGE_PROPERTY, DAMAGE_CROPS, BEGIN_LAT,BEGIN_LON,END_LAT,END_LON ,CZ_NAME, SOURCE
+)]
+
+# transform time format
+noaa_data[, BEGIN_DATE_TIME := parse_date_time(BEGIN_DATE_TIME, orders = "d-b-y HMS")]
+noaa_data[, END_DATE_TIME   := parse_date_time(END_DATE_TIME, orders = "d-b-y HMS")]
+
+
+
+
+noaa_data
+```
+
+
+
+
+
