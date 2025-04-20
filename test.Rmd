@@ -26,42 +26,151 @@ library(lmtest)
 # Geospatial analysis
 library(sf) 
 library(tmap)
-library(ggspatial) 
+
+
+```
+
+
+
+
+
+```{r}
+
+library(data.table)
+
+# 尝试读取2016年CSV（建议先读取部分）
+df_2014 <- fread("eaglei_data/eaglei_outages_2014.csv")
+df_2015 <- fread("eaglei_data/eaglei_outages_2015.csv")
+
+
+# 看前几行
+df_2014
+df_2015
+
+
+
+```
+```{r}
+
+
+clean_outage_by_year_full <- function(df) {
+  # 清除 NA 和无效记录
+  df <- df[!is.na(customers_out) & customers_out > 0]
+
+  # 标准化时间字段
+  df[, run_start_time := as.POSIXct(run_start_time, format = "%Y-%m-%d %H:%M:%S")]
+
+  # 添加时间衍生变量
+  df[, `:=`(
+    year = year(run_start_time),
+    month = month(run_start_time),
+    day = day(run_start_time),
+    hour = hour(run_start_time),
+    wday = wday(run_start_time, label = TRUE)
+  )]
+
+  # 标准化地名
+  df[, county := toupper(trimws(county))]
+  df[, state := toupper(trimws(state))]
+
+  return(df)
+}
+
+
+
+```
+
+```{r}
+df_2014_clean <- clean_outage_by_year_full(df_2014)
+
+df_2014_clean
+```
+
+```{r}
+library(ggplot2)
+
+df_2014_clean[, month := factor(month, levels = 1:12, labels = month.abb)]
+
+ggplot(df_2014_clean, aes(x = month, y = customers_out)) +
+  geom_bar(stat = "summary", fun = "sum", fill = "steelblue") +
+  labs(title = "Total Customers Out by Month (2014)",
+       x = "Month", y = "Total Customers Out")
+
+```
+
+```{r}
+
+## 每周几最常发生停电（按星期几）
+
+ggplot(df_2014_clean, aes(x = wday)) +
+  geom_bar(fill = "tomato") +
+  labs(title = "Outage Frequency by Day of Week (2014)",
+       x = "Weekday", y = "Number of Records")
 
 ```
 
 
 ```{r}
-##memory limit of 16 gb, cant combined all file
+
+#哪些郡县停电最多？（Top 10）
+
+df_2014_clean[
+  , .(total_out = sum(customers_out)), 
+  by = .(state, county)
+][order(-total_out)][1:10]
 
 
+# 哪个小时最容易停电？
+ggplot(df_2014_clean, aes(x = hour)) +
+  geom_histogram(binwidth = 1, fill = "darkgreen") +
+  labs(title = "Hourly Outage Frequency (2014)",
+       x = "Hour of Day", y = "Number of Records")
 
-# read all eaglei_outages_xxxx.csv file
-eagle_files <- list.files("eaglei_data", pattern = "^eaglei_outages_\\d{4}\\.csv$", full.names = TRUE)
-
-# Batch read and add year variable
-eagle_list <- lapply(eagle_files, function(file) {
-  dt <- fread(file)
-  year <- str_extract(file, "\\d{4}")   # Year of extraction
-  dt[, YEAR := as.integer(year)]        
-  return(dt)
-})
-
-# Combined into one master data frame
-eagle_data <- rbindlist(eagle_list, fill = TRUE)
-
-# View Results
-str(eagle_data)
 
 ```
+## 按小时分布：
 
+显示出下午和晚上是停电记录最多的时间段（16:00–21:00 尤其高）；
+
+清晨到中午相对较少；
+
+这个趋势可以用于探讨是否与用电高峰或天气变化有关
+
+停电用户数最多的县（Top 10）：
+
+洛杉矶县（CA）、Hillsborough（NH）、Merrimack（NH）遥遥领先；
+
+可以考虑这些地区是否人口多、基础设施老旧或天气极端事件集中
+
+
+#每州总停电用户数排行（state-level view）
 ```{r}
-eagle2023 <- fread("eaglei_data/eaglei_outages_2023.csv")
+df_2014_clean[, .(total_out = sum(customers_out)), by = state][order(-total_out)][1:10]
 
+state_total <- df_2014_clean[, .(total_out = sum(customers_out)), by = state][order(-total_out)][1:10]
 
-head(eagle2023)
+ggplot(state_total, aes(x = reorder(state, total_out), y = total_out)) +
+  geom_col(fill = "skyblue") +
+  coord_flip() +
+  labs(title = "Top 10 States by Total Customers Out (2014)",
+       x = "State", y = "Total Customers Out")
+
 
 ```
+
+
+按日期或周次查看趋势变化
+```{r}
+df_2014_clean[, date := as.Date(run_start_time)]
+df_2014_clean[, week := isoweek(date)]
+
+ggplot(df_2014_clean[, .(total_out = sum(customers_out)), by = week], 
+       aes(x = week, y = total_out)) +
+  geom_line(color = "steelblue") +
+  labs(title = "Weekly Total Customers Out (2014)", x = "Week Number", y = "Customers Out")
+
+```
+
 
 
 
