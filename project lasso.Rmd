@@ -8,6 +8,12 @@ date: "2025-04-22"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 library(dplyr)
 library(lubridate)
 library(tidyr)
@@ -19,6 +25,11 @@ library(tidyverse)
 library(DataExplorer)
 library(corrplot)
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 ```
 # Abstract
 
@@ -160,7 +171,14 @@ modeling_data <- inner_join(
 
 ```
 
+<<<<<<< HEAD
 
+=======
+```{r}
+colnames(EDAdata)
+
+```
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 
 # Exploratory Data Analysis (EDA)
 ```{r}
@@ -206,6 +224,65 @@ if ("EVENT_TYPE" %in% names(EDAdata)) {
 }
 
 ```
+<<<<<<< HEAD
+=======
+```{r}
+
+library(dplyr)
+library(lubridate)
+
+EDAdata <- EDAdata %>%
+  mutate(
+    BEGIN_DATETIME = as.POSIXct(paste(date, BEGIN_TIME), format = "%Y-%m-%d %H:%M"),
+    END_DATETIME   = as.POSIXct(paste(date, END_TIME), format = "%Y-%m-%d %H:%M"),
+    DURATION_MINUTES = as.numeric(difftime(END_DATETIME, BEGIN_DATETIME, units = "mins"))
+  )
+
+EDAdata %>%
+  group_by(EVENT_TYPE) %>%
+  summarise(avg_duration = mean(DURATION_MINUTES, na.rm = TRUE)) %>%
+  arrange(desc(avg_duration)) %>%
+  ggplot(aes(x = reorder(EVENT_TYPE, avg_duration), y = avg_duration)) +
+  geom_col(fill = "skyblue") +
+  coord_flip() +
+  labs(
+    title = "Average Duration by Event Type",
+    x = "Event Type",
+    y = "Average Duration (minutes)"
+  ) +
+  theme_minimal()
+
+
+
+```
+
+
+```{r}
+library(ggplot2)
+EDAdata %>%
+  group_by(YEAR, EVENT_TYPE) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = YEAR, y = count, color = EVENT_TYPE)) +
+  geom_line() +
+  labs(title = "Event Type Frequency by Year")
+
+```
+```{r}
+EDAdata %>%
+  group_by(state, EVENT_TYPE) %>%
+  summarise(count = n()) %>%
+  filter(EVENT_TYPE == "Tornado") %>%  # Example of looking at Tornado only, with the possibility of switching to other events
+  ggplot(aes(x = reorder(state, count), y = count)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Tornado Frequency by State")
+
+```
+
+
+
+
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 
 # Modeling
 # # Further Data Cleaning and Combining
@@ -311,6 +388,7 @@ data <- data %>%
     damage_crops = replace_na(convert_damage(DAMAGE_CROPS), 0)
   )
 
+<<<<<<< HEAD
 # One-hot encode EVENT_TYPE and state
 final_data <- dummy_cols(data, 
                          select_columns = c("EVENT_TYPE", "state"), 
@@ -325,10 +403,18 @@ final_data <- bind_cols(data_cleaned,
                         select(final_data, starts_with("EVENT_TYPE_"), starts_with("state_")))
 
 
+=======
+# Perform one-hot encoding for the EVENT_TYPE column
+# This will generate binary indicator columns like EVENT_TYPE_Tornado, EVENT_TYPE_Hail, etc.
+final_data <- dummy_cols(data, select_columns = "EVENT_TYPE", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+data_cleaned <- data %>% select(-EVENT_TYPE)
+final_data <- bind_cols(data_cleaned, select(final_data, starts_with("EVENT_TYPE_")))
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 
 ```
 
 
+<<<<<<< HEAD
 ```{r}
 library(glmnet)
 library(tidyverse)
@@ -365,7 +451,59 @@ cat("Test MSE:", mse, "\n")
 
 
 
+=======
+
+```{r}
+
+
+library(dplyr)
+library(ggplot2)
+
+event_vars <- names(final_data)[grepl("^EVENT_TYPE_", names(final_data))]
+
+
+avg_outage_per_event <- lapply(event_vars, function(col) {
+  final_data %>%
+    filter(.data[[col]] == 1) %>%
+    summarise(event_type = col,
+              avg_outage = mean(customers_day, na.rm = TRUE))
+}) %>%
+  bind_rows() %>%
+  arrange(desc(avg_outage))
+
+
+ggplot(avg_outage_per_event, aes(x = reorder(event_type, avg_outage), y = avg_outage)) +
+  geom_col(fill = "orange") +
+  coord_flip() +
+  labs(title = "Average Customer Outages by Event Type",
+       x = "Event Type", y = "Average Outage") +
+  theme_minimal()
+
+
+```
+```{r}
+total_outage_per_event <- lapply(event_vars, function(col) {
+  final_data %>%
+    filter(.data[[col]] == 1) %>%
+    summarise(event_type = col,
+              total_outage = sum(customers_day, na.rm = TRUE))
+}) %>%
+  bind_rows() %>%
+  arrange(desc(total_outage))
+
+ggplot(total_outage_per_event, aes(x = reorder(event_type, total_outage), y = total_outage)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Total Customer Outages by Event Type",
+       x = "Event Type", y = "Total Outage") +
+  theme_minimal()
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 
 ```
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
