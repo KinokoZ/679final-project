@@ -1,0 +1,272 @@
+---
+title: "Lasso, Ridge % RF"
+author: "Keyu Feng"
+date: "2025-05-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(stringr)
+library(tibble)
+library(fastDummies)
+library(ggplot2)
+library(tidyverse)
+library(DataExplorer)
+library(corrplot)
+library(caret)
+library(glmnet)
+library(ranger)
+
+```
+
+# Modeling
+# # Further Data Cleaning
+
+We have only 1368 2014 observations, which is a small proportion of the data, so we remove information about 2014.
+```{r}
+data <- read.csv("raw_modeling_data.csv")
+#head(data)
+
+# Test the NA ratio again
+data[data == ""] <- NA
+calculate_na_ratio <- function(data) {
+  data.frame(
+    Column = names(data),
+    NA_Ratio = sapply(data, function(x) mean(is.na(x)))
+  ) %>%
+    arrange(desc(NA_Ratio))
+}
+
+na_ratio_summary <- calculate_na_ratio(data)
+print(na_ratio_summary)
+
+# Remove columns that have higher proportion NAs or are meaningless 
+columns_to_remove <- c( # List of columns to remove
+  "X",                  # Row ID, meaningless
+  "FLOOD_CAUSE",
+  "MAGNITUDE",
+  "MAGNITUDE_TYPE",
+  "TOR_OTHER_WFO",
+  "TOR_OTHER_CZ_STATE",
+  "TOR_F_SCALE",
+  "CZ_TYPE",            # Area type (low variance, not useful)
+  "WFO",                # Forecasting Institutions type
+  "TOR_OTHER_WFO",
+  "BEGIN_AZIMUTH",      # Compass direction (messy, text-based)
+  "END_AZIMUTH",        # Compass direction (messy, text-based)
+  "BEGIN_LOCATION",     # Text description, not structured
+  "END_LOCATION",       # Text description
+  "UTC_OFFSET"          # Timezone offset (redundant with 'state')
+)
+
+# Remove these columns
+data <- data[, !(names(data) %in% columns_to_remove)]
+
+# View the remaining columns
+#print(names(data))
+
+# Missing Value Imputation
+data <- data %>%
+  mutate(across(c(BEGIN_LAT, BEGIN_LON, END_LAT, END_LON), ~ replace_na(., median(., na.rm = TRUE))))
+
+data <- data %>%
+  mutate(
+    BEGIN_RANGE = replace_na(BEGIN_RANGE, median(BEGIN_RANGE, na.rm = TRUE)),
+    END_RANGE   = replace_na(END_RANGE, median(END_RANGE, na.rm = TRUE))
+  )
+
+# Rearrange the time format
+data <- data %>%
+  mutate(
+    year = year(date),
+    month = month(date),
+    day = day(date),
+    weekday = wday(date, week_start = 1) - 1,
+    is_weekend = ifelse(weekday %in% c(5, 6), 1, 0)
+  ) %>%
+  select(year, month, day, weekday, is_weekend, everything(), -date)
+
+data$begin_hour <- hour(parse_date_time(data$BEGIN_TIME, orders = "H:M"))
+data$begin_hour[is.na(data$begin_hour)] <- -1
+
+# Count the number of occurrences per year
+year_counts <- table(data$year)
+print(year_counts)
+
+# Remove rows where the year is 2014
+data <- data[data$year != "2014", ]
+```
+
+
+# # Feature Engineering
+```{r}
+# Time Management
+data$BEGIN_TIME <- hm(data$BEGIN_TIME)
+data$END_TIME <- hm(data$END_TIME)
+
+# Calculate raw duration
+minute_difference <- as.numeric(as.duration(data$END_TIME - data$BEGIN_TIME)) / 60
+
+# Handle negative time differences
+minute_difference[minute_difference < 0] <- 
+  minute_difference[minute_difference < 0] + 24 * 60
+
+# Calculate day span difference
+day_difference <- data$END_DAY - data$BEGIN_DAY
+data$duration_minutes <- day_difference * 24 * 60 + minute_difference
+
+# Remove useless columns after engineering
+data <- data[, !(names(data) %in% c("BEGIN_TIME", "END_TIME", "BEGIN_DAY", "END_DAY"))]
+#head(data)
+
+# Damage Convention
+convert_damage <- function(x) {
+  x <- toupper(trimws(as.character(x)))  # standardize
+  sapply(x, function(val) {
+    if (is.na(val) || val == "") {
+      return(0)
+    } else if (grepl("K$", val)) {
+      return(as.numeric(gsub("K", "", val)) * 1e3)
+    } else if (grepl("M$", val)) {
+      return(as.numeric(gsub("M", "", val)) * 1e6)
+    } else if (grepl("B$", val)) {
+      return(as.numeric(gsub("B", "", val)) * 1e9)
+    } else if (!is.na(as.numeric(val))) {
+      return(as.numeric(val))
+    } else {
+      return(0)
+    }
+  })
+}
+
+data$damage_property <- convert_damage(data$DAMAGE_PROPERTY)
+data$damage_crops <- convert_damage(data$DAMAGE_CROPS)
+
+# Perform one-hot encoding for the EVENT_TYPE column
+# This will generate binary indicator columns like EVENT_TYPE_Tornado, EVENT_TYPE_Hail, etc. 
+final_data <- dummy_cols(data, select_columns = c("EVENT_TYPE", "state"), remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+data_cleaned <- data %>% select(-EVENT_TYPE, -state, -county, -DAMAGE_PROPERTY, -DAMAGE_CROPS)
+
+# Re-bind the cleaned original data with the new dummy variables
+final_data <- bind_cols(data_cleaned, select(final_data, starts_with("EVENT_TYPE_"), starts_with("state_")))
+
+```
+
+We created the correlation matrix for numeric values. Before each stage modeling, we included the loss function for later evaluation.
+```{r}
+# Test the correlation for numeric variables
+numeric_data <- data[, sapply(data, is.numeric)]
+
+# Calculate the correlation matrix
+correlation_matrix <- cor(numeric_data, use = "complete.obs")
+
+# View the correlation matrix
+#print(correlation_matrix)
+
+# Use the loss function
+calc_loss<-function(prediction,actual){
+  difpred <- actual-prediction
+  RMSE <-sqrt(mean(difpred^2))
+  operation_loss<-abs(sum(difpred[difpred<0]))+sum(0.1*actual[difpred>0])
+  return(
+    list(RMSE,operation_loss
+         )
+  )
+}
+
+```
+
+# # Linear regression with Lasso as the baseline
+```{r}
+# Prepare Feature Matrix X and Target Variable y
+X <- final_data %>%
+  select(-customers_day) %>%
+  as.matrix()
+
+y <- final_data$customers_day
+
+# Split the dataset use the index 0.7
+set.seed(123)
+train_idx <- sample(1:nrow(X), size = 0.8 * nrow(X))
+X_train <- X[train_idx, ]
+X_test  <- X[-train_idx, ]
+y_train <- y[train_idx]
+y_test  <- y[-train_idx]
+X_train[is.na(X_train)] <- 0
+X_test[is.na(X_test)] <- 0 # Replace NAs as 0
+
+# Fit the Lasso Model
+lasso_model <- glmnet(X_train, y_train, alpha = 1)
+
+# Use Cross Validation to select best lambda
+cv_model <- cv.glmnet(X_train, y_train, alpha = 1)
+best_lambda <- cv_model$lambda.min
+cat("Best lambda:", best_lambda, "\n")
+
+# Prediction
+y_pred <- predict(cv_model, s = best_lambda, newx = X_test)
+Lasso_loss <- calc_loss(prediction = y_pred, actual = y_test)
+
+# Display results
+print(Lasso_loss)
+
+```
+
+# # Linear Regression with Ridge
+```{r}
+# Fit the Ridge Model
+ridge_model <- glmnet(X_train, y_train, alpha = 0)
+
+# Use Cross Validation to select best lambda
+cv_ridge <- cv.glmnet(X_train, y_train, alpha = 0)
+best_lambda <- cv_ridge$lambda.min
+cat("Best lambda:", best_lambda, "\n")
+
+# Prediction
+y_pred <- predict(cv_ridge, s = best_lambda, newx = X_test)
+Ridge_loss <- calc_loss(prediction = y_pred, actual = y_test)
+
+# Display results
+print(Ridge_loss)
+
+```
+
+# # Random Forest
+```{r}
+# Prepare Feature Matrix X and Target Variable y
+X <- final_data %>%
+  select(-customers_day) %>%
+  as.matrix()
+
+# Rename the column
+colnames(X) <- make.names(colnames(X))
+
+y <- final_data$customers_day
+rf_data <- as.data.frame(cbind(X, customers_day = y))
+
+# Split the data
+set.seed(123)
+train_idx <- sample(1:nrow(rf_data), size = 0.7 * nrow(rf_data))
+train_data <- rf_data[train_idx, ]
+test_data  <- rf_data[-train_idx, ]
+# colSums(is.na(train_data))
+
+# Fit the Random Forest Model
+rf_model <- ranger(
+  formula = customers_day ~ .,
+  data = train_data,
+  num.trees = 300,  
+  importance = "impurity",  
+  num.threads = parallel::detectCores(),
+  verbose = TRUE
+)
+
+# Prediction
+pred <- predict(rf_model, test_data)$predictions
+Fore_loss <- calc_loss(pred, test_data$customers_day)
+
+# Display results
+print(Fore_loss)
