@@ -569,8 +569,11 @@ print(xgb_res)
 
 # Discussion
 
-We found that there were difficulties to handle some variables. For example, we had "MAGNITUDE" and "MAGNITUDE_TYPE", which might be key predictors for predicting Outages. However, we could not handle them since there were lots of NAs (47%), and we could not impute them using imputation methods because they would affect our predictions. Similarly, we had issue handling the county variable since they had lots of categories, which made us difficult to create dummy variables for them.
+Throughout this project, we encountered several challenges related to data quality and variable representation. A major issue was the handling of the MAGNITUDE and MAGNITUDE_TYPE variables, which were initially considered important indicators of storm severity. However, due to a high percentage of missing values—exceeding 47%—these features were ultimately excluded. Their missingness could not be reliably addressed through imputation, as there were no strong supporting variables to inform a meaningful fill-in strategy.
 
+Another key challenge involved the county variable, which contained hundreds of unique values. Incorporating such a high-cardinality categorical feature through one-hot encoding would have introduced excessive dimensionality and potentially degraded model performance. To avoid these issues, we removed county and instead retained the state variable, which preserved essential geographic variation in a more manageable form. The use of one-hot encoding for both state and EVENT_TYPE enabled the model to learn categorical effects without overwhelming the feature space.
+
+We also observed clear differences in outage severity across event types and states. Events such as hurricanes and ice storms produced significantly higher average outages, while certain states experienced disproportionately large disruptions. These patterns were effectively captured by XGBoost, which demonstrated strong predictive ability under complex, nonlinear relationships and high-dimensional inputs. The model successfully leveraged both engineered features (e.g., storm duration, damage estimates) and encoded categorical variables to produce highly accurate outage forecasts.
 
 
 # Conclusion
