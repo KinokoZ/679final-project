@@ -579,7 +579,7 @@ print(xgb_res)
 
 Throughout this project, we encountered several challenges related to data quality and variable representation. A major issue was the handling of the MAGNITUDE and MAGNITUDE_TYPE variables, which were initially considered important indicators of storm severity. However, due to a high percentage of missing values—exceeding 47%—these features were ultimately excluded. Their missingness could not be reliably addressed through imputation, as there were no strong supporting variables to inform a meaningful fill-in strategy.
 
-Another key challenge involved the county variable, which contained hundreds of unique values. Incorporating such a high-cardinality categorical feature through one-hot encoding would have introduced excessive dimensionality and potentially degraded model performance. To avoid these issues, we removed county and instead retained the state variable, which preserved essential geographic variation in a more manageable form. The use of one-hot encoding for both state and EVENT_TYPE enabled the model to learn categorical effects without overwhelming the feature space.
+Another key challenge involved handling high-cardinality categorical variables. The county variable contained hundreds of unique values, and incorporating it through one-hot encoding would have introduced excessive dimensionality, increasing the risk of overfitting and computational inefficiency. Similarly, the WFO (Weather Forecast Office) variable included a large number of unique identifiers tied to regional forecasting offices. While potentially informative, its high cardinality and overlap with state-level information made it difficult to integrate meaningfully. To address these issues, we removed both county and WFO from the modeling dataset and instead retained the state variable, which preserved essential geographic variation in a more manageable form. We applied one-hot encoding to both state and EVENT_TYPE to capture important categorical effects while maintaining a balance between model complexity and interpretability.
 
 We also observed clear differences in outage severity across event types and states. Events such as hurricanes and ice storms produced significantly higher average outages, while certain states experienced disproportionately large disruptions. These patterns were effectively captured by XGBoost, which demonstrated strong predictive ability under complex, nonlinear relationships and high-dimensional inputs. The model successfully leveraged both engineered features (e.g., storm duration, damage estimates) and encoded categorical variables to produce highly accurate outage forecasts.
 
@@ -598,5 +598,9 @@ The results demonstrate that XGBoost is highly effective in capturing complex no
 
 # References
 
+Ghasemkhani B, Kut R A, Yilmaz R, et al. Machine Learning Model Development to Predict Power Outage Duration (POD): A Case Study for Electric Utilities[J]. Sensors (Basel, Switzerland), 2024, 24(13): 4313.
 
+Wang X, Fatehi N, Wang C, et al. Deep Learning-Based Weather-Related Power Outage Prediction with Socio-Economic and Power Infrastructure Data[C]//2024 IEEE Power & Energy Society General Meeting (PESGM). IEEE, 2024: 1-5.
+
+Tervo R, Karjalainen J, Jung A. Short-term prediction of electricity outages caused by convective storms[J]. IEEE Transactions on Geoscience and Remote Sensing, 2019, 57(11): 8618-8626.
 
