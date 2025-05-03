@@ -7,6 +7,7 @@ date: "2025-04-22"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(dplyr)
 library(lubridate)
 library(tidyr)
@@ -520,6 +521,13 @@ print(Ridge_res)
 
 # # XGBoost
 
+XGBoost is an integrated learning algorithm based on gradient boosting, which is suitable for dealing with nonlinear relationships and has strong predictive power. We use early stopping to avoid overfitting.
+
+The performance of the final model on the test set is:
+
+MSE: 1289.72  MAE: 1.26
+
+The results show that XGBoost performs the best among all the models with the lowest prediction error and high accuracy.
 
 
 ```{r}
@@ -578,7 +586,11 @@ We also observed clear differences in outage severity across event types and sta
 
 # Conclusion
 
+In this project, we evaluated multiple modeling approaches to predict the number of customers per day using a cleaned and engineered dataset. As a baseline, we implemented linear regression models with Lasso and Ridge regularization. While the Lasso model achieved a moderate level of accuracy (MSE = 3993.25, MAE = 13.14), the Ridge model performed less effectively with a significantly higher error (MSE = 39497.93, MAE = 40.97).
 
+To improve predictive performance, we applied an XGBoost regression model. Compared to the baseline models, XGBoost significantly outperformed both linear models, yielding a much lower MSE of 1289.72 and a MAE of 1.26. The training process also showed consistent improvement and convergence without signs of overfitting, as indicated by early stopping based on test RMSE.
+
+The results demonstrate that XGBoost is highly effective in capturing complex nonlinear relationships in the data, making it the most suitable model among those evaluated.
 
 
 
