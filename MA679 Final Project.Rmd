@@ -277,17 +277,7 @@ EDAdata %>%
 
 ```
 
-```{r, include=FALSE}
-EDAdata %>%
-  group_by(state, EVENT_TYPE) %>%
-  summarise(count = n()) %>%
-  filter(EVENT_TYPE == "Tornado") %>%  # Example of looking at Tornado only, with the possibility of switching to other events
-  ggplot(aes(x = reorder(state, count), y = count)) +
-  geom_col(fill = "steelblue") +
-  coord_flip() +
-  labs(title = "Tornado Frequency by State")
 
-```
 
 This plot showed that total_customers and customers_day are perfectly related, which makes sense since one is calculated from the other. Location columns like BEGIN_LAT, END_LAT, BEGIN_LON, and END_LON are also strongly related, showing that the start and end points of each event are often close together. Most of the other columns, such as INJURIES_DIRECT, DEATHS_DIRECT, and MAGNITUDE, are not strongly related to customer outages. This means they might describe different parts of the storm impact.
 
@@ -327,7 +317,6 @@ print(na_ratio_summary)
 # Remove columns that have higher proportion NAs or are meaningless 
 columns_to_remove <- c( # List of columns to remove
   "X",                  # Row ID, meaningless
-  "total_customers",    # Same information like customers_day
   "FLOOD_CAUSE",
   "MAGNITUDE",
   "MAGNITUDE_TYPE",
@@ -458,12 +447,8 @@ calc_metrics <- function(prediction, actual) {
   # Mean Absolute Error
   mae <- mean(abs(actual - prediction))
   
-  # R-squared
-  ss_total <- sum((actual - mean(actual))^2)
-  ss_res <- sum((actual - prediction)^2)
-  r_squared <- 1 - (ss_res / ss_total)
   
-  return(list(MSE = mse, MAE = mae, R2 = r_squared))
+  return(list(MSE = mse, MAE = mae))
 }
 
 ```
@@ -472,7 +457,7 @@ calc_metrics <- function(prediction, actual) {
 
 The lambda value controls how much the model should shrink less important variables. If lambda is too small, the model may overfit the data. If it is too large, the model may underfit and ignore important variables. We use cross-validation to find the best lambda that gives us the most accurate predictions while keeping the model simple.
 
-The best lambda is 1.66, with the Mean Squared Error (mse) = 4,601,178, which told us the average difference between actual and prediction values. And the Mean Absolute Error (MAE) is 449.74. This means that, on average, the model's predictions differ from the actual outage values by about 450 units.
+The best lambda is 64, with the Mean Squared Error (mse) = 3993.253, which told us the average difference between actual and prediction values. And the Mean Absolute Error (MAE) is 13.13931. This means that, on average, the model's predictions differ from the actual outage values by about 13 units.
 
 ```{r}
 # Prepare Feature Matrix X and Target Variable y
@@ -511,8 +496,8 @@ print(Lasso_res)
 
 # # Linear Regression with Ridge
 
-The best lambda is 111.74, with the Mean Squared Error (MSE) = 4,601,291, which tells us the average squared difference between actual and predicted values.
-The Mean Absolute Error (MAE) is 447.36, meaning the model's predictions differ from the true outage values by about 447 units on average.
+The best lambda is 223, with the Mean Squared Error (MSE) =  39497.93, which tells us the average squared difference between actual and predicted values.
+The Mean Absolute Error (MAE) is 40.97327, meaning the model's predictions differ from the true outage values by about 41 units on average.
 
 ```{r}
 # Fit the Ridge Model
@@ -532,48 +517,7 @@ print(Ridge_res)
 
 ```
 
-# # Random Forest
 
-For the Random Forest model, the Mean Squared Error (MSE) is 3,222,250, which reflects the average squared difference between the predicted and actual values.
-The Mean Absolute Error (MAE) is 307.04, meaning that, on average, the model's predictions are off by about 307 units from the actual outage values. This shows a noticeable improvement over the linear models in both accuracy and consistency.
-
-```{r}
-# Prepare Feature Matrix X and Target Variable y
-X <- final_data %>%
-  select(-customers_day) %>%
-  as.matrix()
-
-# Rename the column
-colnames(X) <- make.names(colnames(X))
-
-y <- final_data$customers_day
-rf_data <- as.data.frame(cbind(X, customers_day = y))
-
-# Split the data
-set.seed(123)
-train_idx <- sample(1:nrow(rf_data), size = 0.7 * nrow(rf_data))
-train_data <- rf_data[train_idx, ]
-test_data  <- rf_data[-train_idx, ]
-# colSums(is.na(train_data))
-
-# Fit the Random Forest Model
-rf_model <- ranger(
-  formula = customers_day ~ .,
-  data = train_data,
-  num.trees = 300,  
-  importance = "impurity",  
-  num.threads = parallel::detectCores(),
-  verbose = TRUE
-)
-
-# Prediction
-pred <- predict(rf_model, test_data)$predictions
-Fore_res <- calc_metrics(pred, test_data$customers_day)
-
-# Display results
-print(Fore_res)
-
-```
 # # XGBoost
 
 
