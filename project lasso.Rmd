@@ -8,12 +8,7 @@ date: "2025-04-22"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-<<<<<<< HEAD
-=======
 
-
-
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 library(dplyr)
 library(lubridate)
 library(tidyr)
@@ -25,11 +20,7 @@ library(tidyverse)
 library(DataExplorer)
 library(corrplot)
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
 ```
 # Abstract
 
@@ -171,14 +162,14 @@ modeling_data <- inner_join(
 
 ```
 
-<<<<<<< HEAD
 
-=======
+
+
 ```{r}
 colnames(EDAdata)
 
 ```
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
+
 
 # Exploratory Data Analysis (EDA)
 ```{r}
@@ -224,8 +215,8 @@ if ("EVENT_TYPE" %in% names(EDAdata)) {
 }
 
 ```
-<<<<<<< HEAD
-=======
+
+
 ```{r}
 
 library(dplyr)
@@ -267,6 +258,7 @@ EDAdata %>%
   labs(title = "Event Type Frequency by Year")
 
 ```
+
 ```{r}
 EDAdata %>%
   group_by(state, EVENT_TYPE) %>%
@@ -282,7 +274,7 @@ EDAdata %>%
 
 
 
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
+
 
 # Modeling
 # # Further Data Cleaning and Combining
@@ -388,7 +380,7 @@ data <- data %>%
     damage_crops = replace_na(convert_damage(DAMAGE_CROPS), 0)
   )
 
-<<<<<<< HEAD
+
 # One-hot encode EVENT_TYPE and state
 final_data <- dummy_cols(data, 
                          select_columns = c("EVENT_TYPE", "state"), 
@@ -403,18 +395,19 @@ final_data <- bind_cols(data_cleaned,
                         select(final_data, starts_with("EVENT_TYPE_"), starts_with("state_")))
 
 
-=======
+
 # Perform one-hot encoding for the EVENT_TYPE column
 # This will generate binary indicator columns like EVENT_TYPE_Tornado, EVENT_TYPE_Hail, etc.
 final_data <- dummy_cols(data, select_columns = "EVENT_TYPE", remove_first_dummy = FALSE, remove_selected_columns = TRUE)
 data_cleaned <- data %>% select(-EVENT_TYPE)
 final_data <- bind_cols(data_cleaned, select(final_data, starts_with("EVENT_TYPE_")))
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
+
 
 ```
 
 
-<<<<<<< HEAD
+
+
 ```{r}
 library(glmnet)
 library(tidyverse)
@@ -447,13 +440,11 @@ cat("Best lambda:", best_lambda, "\n")
 y_pred <- predict(cv_model, s = best_lambda, newx = X_test)
 mse <- mean((y_pred - y_test)^2)
 cat("Test MSE:", mse, "\n")
+```
 
-
-
-
-=======
 
 ```{r}
+
 
 
 library(dplyr)
@@ -481,6 +472,7 @@ ggplot(avg_outage_per_event, aes(x = reorder(event_type, avg_outage), y = avg_ou
 
 
 ```
+
 ```{r}
 total_outage_per_event <- lapply(event_vars, function(col) {
   final_data %>%
@@ -497,7 +489,7 @@ ggplot(total_outage_per_event, aes(x = reorder(event_type, total_outage), y = to
   labs(title = "Total Customer Outages by Event Type",
        x = "Event Type", y = "Total Outage") +
   theme_minimal()
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
+
 
 ```
 
@@ -509,62 +501,17 @@ final_data <- dummy_cols(final_data, select_columns = "state", remove_first_dumm
 
 
 ```
+
 ```{r}
 nrow(X_train)
 length(y_train)
 ```
 
 
-```{r}
-#拆分训练与测试集
-set.seed(123)
-library(caret)
-train_idx <- createDataPartition(final_data$customers_day, p = 0.8, list = FALSE)
-train_data <- final_data[train_idx, ]
-test_data <- final_data[-train_idx, ]
-
-```
-
-```{r}
-library(xgboost)
-
-# 删除 customers_day，保留其他所有变量作为特征
-X_train <- model.matrix(~ . - customers_day, data = train_data)
-X_test <- model.matrix(~ . - customers_day, data = test_data)
-
-y_train <- train_data$customers_day
-y_test <- test_data$customers_day
-
-dtrain <- xgb.DMatrix(data = X_train, label = y_train)
-dtest <- xgb.DMatrix(data = X_test, label = y_test)
-
-```
-
-```{r}
-params <- list(
-  objective = "reg:squarederror",  # 回归任务
-  eta = 0.1,
-  max_depth = 6
-)
-
-xgb_model <- xgb.train(
-  params = params,
-  data = dtrain,
-  nrounds = 100,
-  watchlist = list(train = dtrain, test = dtest),
-  print_every_n = 10,
-  early_stopping_rounds = 10
-)
-
-```
 
 
 
 
 
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> c6a16b79d9957b020c2538365e25117063dc4a46
