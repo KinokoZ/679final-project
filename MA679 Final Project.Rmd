@@ -37,11 +37,11 @@ We leverage publicly available storm event records and historical power outage d
 To evaluate model performance, we test four predictive algorithms: Lasso (L1-regularized linear regression), Ridge (L2-regularized regression), Random Forest, and XGBoost. We use RMSE, MAE,  MSE and Loss function as the primary evaluation metrics. Our pipeline includes cross-validation for hyperparameter tuning and uses consistent train/test splits to ensure comparability. This report details the modeling workflow and presents insights into model performance, with particular attention to the high accuracy and robustness of the XGBoost model.
 
 # Separate Data Cleaning and Modeling Data Combination
-# # Outage Data (No need to run again)
+## Outage Data (No need to run again)
 
 We first loaded the outage data and converted the time column into a proper datetime format. We then grouped the data by state, county, and date, summed the number of customers affected, and calculated the value of customers per day.
 
-```{r}
+```{r, eval = FALSE}
 # Load the data
 outage_data <- read.csv("eaglei_outages_2014_2023.csv")
 #head(outage_data)
@@ -66,7 +66,7 @@ summary <- df %>%
 
 ```
 
-# # Stromevents Data (No need to run again)
+## Stromevents Data (No need to run again)
 
 Next, we loaded the storm events data and cleaned the time format by adding colons and padding zeros. We joined a timezone offset table to adjust all times to UTC. Then, we created full datetime columns for the start and end of each event and extracted the date. We also standardized state and county names.
 
@@ -74,7 +74,7 @@ To focus on the most common or impactful events, we filtered the dataset to keep
 
 Finally, we created a function to calculate the percentage of missing values in each column, allowing us to check data completeness before merging datasets. From the function, We found that "CATEGORY", "TOR_OTHER_CZ_FIPS", "TOR_LENGTH", and "TOR_WIDTH" coulumns had large proportions of missing values (> 97%), so we removed them along with some columns that are meaningless.
 
-```{r}
+```{r, eval = FALSE}
 # Access the data
 storm_data <- read.csv("StormEvents_2014_2024.csv")
 #head(storm_data)
@@ -141,13 +141,13 @@ stormevents_filtered <- stormevents_filtered %>%
 
 ```
 
-# # Combine the datasets by matching state and date. (No need to run again)
+## Combine the datasets by matching state and date. (No need to run again)
 
 We loaded the cleaned outage dataset and standardized the state, county, and date formats to make sure they match with the storm events dataset. Similarly, we updated the storm events dataset to use the same format for these three key columns.
 
 After making sure the formats were aligned, we merged the two datasets using state, county, and date as the joining keys. This allowed us to combine power outage data with storm event information that occurred on the same day in the same area. Finally, we sorted the merged dataset by state and date for better organization.
 
-```{r}
+```{r, eval = FALSE}
 # Loading cleaning outage set for convenience
 outage_data <- read.csv("outage.csv")
 #head(outage_data)
@@ -292,13 +292,13 @@ corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.7)
 ```
 
 # Modeling
-# # Further Data Cleaning
+## Further Data Cleaning
 
 Before modeling, we double checked the missing values, we treated empty strings as missing values (NA). We then calculated the NA ratio for each column, and we detected 3 high missing proportion columns (> 40%) in our modeling data. In our next step, we manually removed those columns that had too many missing values or were considered irrelevant, such as location descriptions, compass directions, or identifiers. The dimension of our data was 318782 observations of 21 variables. Next, we filled in missing latitude, longitude, and range values using the median of each column to help keep the geographic data consistent. 
 
 For our time format, we extracted date-related features such as year, month, day, weekday, and whether the event occurred on a weekend. We also parsed the hour from the storm start time (BEGIN_TIME) and assigned -1 for rows where the time was missing or invalid. During our cleaning process, we detected that there were only 1368 events in 2014, which makes it statistically unreliable for learning meaningful patterns. They might introduce noise and lead to overfitting or misrepresentation in the model, so we remove information about 2014 from our data. The final data had 317414 observations of 26 variables.
 
-```{r, echo=FALSE}
+```{r}
 data <- read.csv("raw_modeling_data.csv")
 #head(data)
 
@@ -372,7 +372,7 @@ print(year_counts)
 data <- data[data$year != "2014", ]
 
 ```
-# # Feature Engineering
+## Feature Engineering
 
 In this step, we processed the storm start and end times by converting them into time format and calculating the total event duration in minutes. To account for events that cross over to the next day (e.g., from 11 PM to 1 AM), we corrected negative time differences by adding 24 hours. We then combined the day difference and minute difference to calculate the full event duration and removed the original time and day columns afterward.
 
@@ -454,7 +454,7 @@ calc_metrics <- function(prediction, actual) {
 
 ```
 
-# # Linear regression with Lasso as the baseline
+## Linear regression with Lasso as the baseline
 
 The lambda value controls how much the model should shrink less important variables. If lambda is too small, the model may overfit the data. If it is too large, the model may underfit and ignore important variables. We use cross-validation to find the best lambda that gives us the most accurate predictions while keeping the model simple.
 
@@ -495,7 +495,7 @@ print(Lasso_res)
 
 ```
 
-# # Linear Regression with Ridge
+## Linear Regression with Ridge
 
 The best lambda is 223, with the Mean Squared Error (MSE) =  39497.93, which tells us the average squared difference between actual and predicted values.
 The Mean Absolute Error (MAE) is 40.97327, meaning the model's predictions differ from the true outage values by about 41 units on average.
@@ -519,7 +519,7 @@ print(Ridge_res)
 ```
 
 
-# # XGBoost
+## XGBoost
 
 XGBoost is an integrated learning algorithm based on gradient boosting, which is suitable for dealing with nonlinear relationships and has strong predictive power. We use early stopping to avoid overfitting.
 
