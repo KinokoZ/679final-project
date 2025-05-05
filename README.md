@@ -1,5 +1,8 @@
 # 679final-project
 
+### Note
+Due to the large file sizes of the original datasets—eaglei_outages_2014_2023.csv and StormEvents_2014_2024.csv, which together exceed 13GB—we were unable to upload them directly to GitHub. To handle the data efficiently, we utilized Boston University’s SCC (Shared Computing Cluster) to perform all data processing and modeling tasks. For reproducibility, we have included code in our repository and provided links to download the original data.
+
 
 ### Data Download Instructions
 Please download the following data and place them into the `eaglei_data/` and `NOAA_StormEvents/` folders:
